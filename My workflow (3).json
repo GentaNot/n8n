@@ -1,0 +1,1059 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "1506f5a6-9f17-4a5c-8b4b-f6bfe043fe81",
+      "name": "Telegram Listener",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1,
+      "position": [
+        -832,
+        240
+      ],
+      "webhookId": "2153bb4b-14f2-40a0-96d7-7af07777eda3",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ga1lDzGeteppzyCc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "functionCode": "// Mengambil objek 'message' dari input node sebelumnya (Telegram Trigger)\nconst message = $input.item.json.message;\n\n// Safety check: Jika tidak ada data message, hentikan alur kerja\nif (!message) {\n  return [];\n}\n\nconst chatId = message.chat.id;\nconst messageText = message.text ? message.text.toLowerCase() : '';\nconst messageCaption = message.caption ? message.caption.toLowerCase() : '';\n\n\nif (messageText.startsWith('/saldo')) {\n  return [{ json: { type: 'saldo_request', chatId: chatId } }];\n}\n\n// Rute 2: Transaksi dengan Gambar (Perbaikan: caption bisa kosong)\nif (message.photo) {\n  // Hanya proses jika ada hashtag di caption ATAU jika kita ingin memproses semua foto\n  if (messageCaption.includes('#pengeluaran') || messageCaption.includes('#pemasukan')) {\n    // Ambil file_id dari foto dengan resolusi tertinggi (elemen terakhir dalam array)\n    const fileId = message.photo[message.photo.length - 1].file_id;\n    return [{ json: { type: 'image_transaction', chatId: chatId, fileId: fileId, caption: message.caption || '' } }];\n  } else {\n    // Jika ada foto tapi tanpa hashtag transaksi, kita bisa abaikan atau tambahkan penanganan lain\n    // Untuk saat ini, kita akan membiarkannya jatuh ke rute 'general_query' jika ada teks di caption\n    if (message.caption) { // Jika ada caption tapi bukan transaksi\n        return [{ json: { type: 'general_query', chatId: chatId, text: message.caption, isPhoto: true } }];\n    }\n  }\n}\n\n// Rute 3: Transaksi dengan Teks\nif (messageText.includes('#pengeluaran') || messageText.includes('#pemasukan')) {\n  return [{ json: { type: 'text_transaction', chatId: chatId, text: message.text } }];\n}\n\n// Rute 4: Pertanyaan Keuangan Umum (Jika tidak ada kondisi di atas yang cocok)\n// Ini akan menangani semua teks yang bukan perintah atau transaksi\nif (message.text) {\n  return [{ json: { type: 'general_query', chatId: chatId, text: message.text } }];\n}\n\n\n// Jika tidak ada kondisi yang cocok, jangan teruskan alur kerja\nreturn [];"
+      },
+      "id": "e707c220-d110-4825-b790-0f10c3e0f738",
+      "name": "Prepare Message & Route",
+      "type": "n8n-nodes-base.function",
+      "typeVersion": 1,
+      "position": [
+        -2016,
+        1072
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Listener').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {}
+      },
+      "id": "9607c46d-6ea4-41e8-a55c-d03eedb14ced",
+      "name": "Reply Saldo",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        384,
+        496
+      ],
+      "webhookId": "a9a0f372-1624-4e07-be39-5ee0cf5d7dec",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ga1lDzGeteppzyCc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8",
+          "mode": "list",
+          "cachedResultName": "my finance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit#gid=0"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "Tanggal",
+              "fieldValue": "={{ JSON.parse($json.output).tanggal }}"
+            },
+            {
+              "fieldId": "Jenis Transaksi",
+              "fieldValue": "={{ JSON.parse($json.output).jenis }}"
+            },
+            {
+              "fieldId": "Kategori",
+              "fieldValue": "={{ JSON.parse($json.output).kategori }}"
+            },
+            {
+              "fieldId": "Deskripsi",
+              "fieldValue": "={{ JSON.parse($json.output).deskripsi }}"
+            },
+            {
+              "fieldId": "Jumlah",
+              "fieldValue": "={{ JSON.parse($json.output).jumlah }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "fc1cbbc8-4148-414b-bdbd-7079cb4095de",
+      "name": "Append to Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        384,
+        0
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "feG4Sr9uxK64kpiP",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Listener').item.json.message.chat.id }}",
+        "text": "=DATA BERASIL DI SIMPAN \n\n*Tanggal:*{{ JSON.parse($json.output).tanggal }}\n*JENIS:*{{ JSON.parse($json.output).jenis }}\n*KATEGORI:*{{ JSON.parse($json.output).kategori }}\n*DESKRIPSI:*{{ JSON.parse($json.output).deskripsi }}\n*JUMLAH:*{{ JSON.parse($json.output).jumlah }}\n\n\n",
+        "additionalFields": {}
+      },
+      "id": "c5c8d64a-796b-4fd9-b580-893094f0a9ec",
+      "name": "Reply Transaction Confirmed",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        640,
+        0
+      ],
+      "webhookId": "ba9ab124-36e4-4716-b773-c0aaa53ab19c",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ga1lDzGeteppzyCc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{$json.fileId}}",
+        "additionalFields": {}
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        304
+      ],
+      "id": "e7abf3c8-dc5b-42e7-8d22-9928e9f464b0",
+      "name": "Get a file",
+      "webhookId": "5c8eef3a-660e-458a-bc8e-69a7bc5b6972",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ga1lDzGeteppzyCc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.type === 'text_transaction'}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    },
+                    "id": "0dc1a2ff-e1fa-460d-823a-da299f255673"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "da5d0158-9352-42e7-b906-77936930c159",
+                    "leftValue": "={{$json.type === 'image_transaction'}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "894f6c89-090d-48f3-81b6-03213756183f",
+                    "leftValue": "={{$json.type === 'saldo_request'}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "cb6257d6-67e0-4ca6-9cbf-eeee51843217",
+                    "leftValue": "={{$json.type === 'general_query'}}",
+                    "rightValue": "",
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "true",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -416,
+        208
+      ],
+      "id": "0a96e79e-69b7-49a6-b939-8445fa233c32",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.text }}",
+        "options": {
+          "systemMessage": "Anda adalah FinAssistAI, seorang AI agent ahli dalam bidang keuangan personal dan umum. Tugas utama Anda adalah memberikan informasi, saran, dan analisis yang akurat serta mudah dipahami terkait berbagai aspek keuangan.\n\nCakupan Pengetahuan:\n\nKeuangan Personal: Anggaran, tabungan, investasi dasar (reksa dana, saham pemula), utang (kredit, KPR, pinjaman online), perencanaan pensiun, asuransi, manajemen arus kas.\n\nKonsep Keuangan Umum: Inflasi, suku bunga, pasar modal, obligasi, diversifikasi, risiko, pajak dasar, laporan keuangan personal (neraca, laporan arus kas).\n\nIstilah dan Definisi: Jelaskan terminologi keuangan yang kompleks dengan bahasa yang sederhana.\n\nTren Ekonomi Dasar: Berikan konteks tren ekonomi umum yang relevan dengan keuangan personal tanpa melakukan analisis pasar real-time atau prediksi spekulatif.\n\nGaya Komunikasi:\n\nInformatif dan Edukatif: Jelaskan konsep dengan jelas, berikan contoh relevan jika diperlukan.\n\nEmpati dan Non-judgmental: Pahami bahwa topik keuangan bisa sensitif. Berikan respons yang mendukung dan tidak menghakimi.\n\nAkurat dan Berhati-hati: Prioritaskan kebenaran informasi. Jika suatu pertanyaan di luar lingkup atau memerlukan saran profesional (misalnya, saran investasi spesifik, hukum, atau pajak), berikan batasan ini dengan sopan dan sarankan untuk mencari ahli.\n\nRingkas namun Komprehensif: Berikan jawaban yang lengkap tanpa bertele-tele.\n\nBatasan (Sangat Penting):\n\nTidak Memberikan Saran Investasi Spesifik: Anda tidak boleh menyarankan pembelian atau penjualan instrumen investasi tertentu (misalnya, 'beli saham A', 'jual reksa dana B'). Fokus pada prinsip investasi dan strategi.\n\nBukan Penasihat Hukum atau Pajak Profesional: Hindari memberikan nasihat hukum atau pajak yang spesifik dan mengikat. Arahkan pengguna untuk berkonsultasi dengan ahli pajak atau pengacara.\n\nTidak Mengakses Data Real-time: Anda tidak memiliki akses ke harga saham real-time, berita pasar terbaru, atau data keuangan pribadi pengguna. Semua jawaban didasarkan pada pengetahuan yang telah dilatih.\n\nTidak Menganalisis Situasi Pribadi Kompleks: Anda dapat memberikan prinsip umum, tetapi tidak dapat melakukan analisis mendalam terhadap situasi keuangan pribadi yang sangat kompleks atau unik.\n\nContoh Pertanyaan dan Harapan Jawaban:\n\nPengguna: \"Apa itu inflasi dan bagaimana pengaruhnya pada uang saya?\"\nFinAssistAI: Jelaskan definisi inflasi, penyebab, dan dampaknya pada daya beli serta nilai tabungan, dengan contoh sederhana.\n\nPengguna: \"Bagaimana cara membuat anggaran bulanan yang efektif?\"\nFinAssistAI: Berikan langkah-langkah praktis dan metode populer (misalnya, aturan 50/30/20) untuk membuat anggaran.\n\nPengguna: \"Saham apa yang bagus untuk dibeli sekarang?\"\nFinAssistAI: \"Sebagai AI, saya tidak dapat memberikan rekomendasi saham spesifik. Namun, saya bisa menjelaskan faktor-faktor yang perlu dipertimbangkan saat memilih saham untuk investasi jangka panjang, seperti fundamental perusahaan, industri, dan profil risiko Anda. Selalu lakukan riset sendiri atau konsultasi dengan penasihat keuangan berlisensi sebelum berinvestasi.\"\n\nInstruksi Tambahan:\n\nSelalu periksa ulang informasi yang diberikan untuk akurasi.\n\nJika pertanyaan terlalu samar, Anda boleh meminta klarifikasi tambahan.\n\nJika ada yang bertanya tentang fitur kita memiliki fitur untuk pencatatan keuangan dengan teks dan gambar untuk mencatat #pemasukan dan #pengeluaran dan ada juga fitur tampilkan saldo dengan /saldo rekap keuangan akan di kirim setiap akhir bulan"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        848
+      ],
+      "id": "35a450d1-68e9-4adb-9f1b-932cd61355be",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Listener').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        848
+      ],
+      "id": "12e94678-3644-4d53-8e0b-94070d41aa8d",
+      "name": "Send a text message1",
+      "webhookId": "d9e11d73-35c1-4dbc-a858-a0ceaa9da18b",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ga1lDzGeteppzyCc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ $('Prepare Message & Route').item.json.chatId }}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        1056
+      ],
+      "id": "2ad5a530-fbf5-45cb-98a6-a2c521e7cf6c",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        16,
+        1008
+      ],
+      "id": "e977c5f5-e2b4-4c13-8411-7482c0c6cdcc",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "r4SUP6M8aLBfyiu0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Telegram Listener').item.json.message.text }}",
+        "options": {
+          "systemMessage": "Anda adalah **FinAssistAI**, seorang asisten AI ahli dalam bidang keuangan personal dan umum.\n\n---\n\n### **Tugas Utama Anda**\n\nBerikan informasi, saran, dan analisis yang akurat serta mudah dipahami terkait berbagai aspek keuangan.\n\n---\n\n### **Saat Pengguna Meminta `/saldo`**\n\n1.  **Gunakan `sheet_tool`** untuk mengakses data keuangan.\n2.  Dari data tersebut, **hitung saldo** dengan mengurangi total pengeluaran dari total pemasukan.\n3.  **Identifikasi dan tampilkan** total pemasukan bulan ini.\n4.  **Identifikasi dan tampilkan** total pengeluaran bulan ini.\n5.  **Tampilkan jumlah saldo akhir** yang telah dihitung.\n\n---\n\n### **Format Respons**\n\nBerikan semua informasi (saldo, total pemasukan, total pengeluaran bulan ini) dalam **satu pesan tunggal yang jelas, ringkas, dan dalam format Rupiah**. **Jangan gunakan tanda bintang (*), poin-poin (bullet points), atau teks tebal (bold) dalam respons Anda.**\n\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        496
+      ],
+      "id": "50091d9f-c914-4d4d-b2c6-e07955ec7d28",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        16,
+        656
+      ],
+      "id": "245f620f-55de-4a09-b2ca-99dcfd621965",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "r4SUP6M8aLBfyiu0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8",
+          "mode": "list",
+          "cachedResultName": "my finance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.6,
+      "position": [
+        208,
+        640
+      ],
+      "id": "9da79696-76d4-4132-9534-61e44350d921",
+      "name": "Get row(s) in sheet in Google Sheets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Sg0fFTBvtJYbaiQ1",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        0,
+        144
+      ],
+      "id": "898ff2b4-d4f7-4297-b2dd-140335f6a4fb",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "r4SUP6M8aLBfyiu0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://api.telegram.org/file/bot8136237187:AAHjac0i8a2VQLqKLEoUwrqLwXeGpM7rF10/{{ $json.result.file_path }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        176,
+        304
+      ],
+      "id": "3b63ec38-fa9c-4a9b-966b-d62550f77aaf",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Ambil nama key binary (biasanya \"data\" atau sesuai upload)\nconst binaryKey = Object.keys(items[0].binary)[0];\n\n// Ambil buffer dari binary file\nconst buffer = await this.helpers.getBinaryDataBuffer(0, binaryKey);\n\n// Ubah buffer ke base64 string\nconst base64Image = buffer.toString('base64');\n\n// Buat payload untuk Gemini API\nconst gemini_payload = {\n  contents: [\n    {\n      parts: [\n        {\n          text: `Analisis struk belanja ini. Ekstrak informasi transaksi berikut dan berikan dalam format JSON.\n\n**Jenis Transaksi**: Tentukan 'Pengeluaran'.\n**Kategori**: Klasifikasikan sebagai 'Jajan' (untuk makanan/minuman ringan, cepat saji), 'Belanja' (untuk supermarket, pakaian, kebutuhan rumah tangga), atau 'Lain-lain'.\n**Deskripsi**: Ringkasan singkat item yang dibeli atau tujuan transaksi.\n**Tanggal**: Tanggal transaksi dalam format YYYY-MM-DD. Jika tidak terlihat jelas, gunakan tanggal hari ini (2025-07-29).\n**Jumlah**: Total nominal transaksi dalam bentuk numerik, tanpa simbol mata uang atau pemisah ribuan.\n\n**Format Output JSON HARUS PERSIS SEPERTI INI:**\n{\"tanggal\": \"YYYY-MM-DD\", \"jenis\": \"Pengeluaran\", \"kategori\": \"Nama Kategori\", \"deskripsi\": \"Deskripsi singkat transaksi\", \"jumlah\": AngkaJumlah}\n\n**Contoh Response yang Benar:**\n{\"tanggal\": \"2025-07-28\", \"jenis\": \"Pengeluaran\", \"kategori\": \"Belanja\", \"deskripsi\": \"Pembelian di Indomaret\", \"jumlah\": 75500}\n\n**Jika struk tidak jelas atau tidak bisa dibaca, berikan respons ini:**\n{\"error\": \"Struk tidak dapat dibaca dengan jelas\"}\n\n**PENTING: Hanya berikan output dalam format JSON tunggal di atas, tanpa teks tambahan atau Markdown (seperti \\`\\`\\`json\\` atau \\`\\`\\`).**`\n        \n        },\n        {\n          inline_data: {\n            mime_type: \"image/jpeg\",\n            data: base64Image\n          }\n        }\n      ]\n    }\n  ],\n  generationConfig: {\n    temperature: 0.4\n  }\n};\n\n// Kembalikan payload sebagai JSON\nreturn [\n  {\n    json: {\n      gemini_payload\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        336,
+        304
+      ],
+      "id": "85f4cf2c-b212-40a3-89c0-2a892cc8cce3",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=AIzaSyDu-9l9OTzmKGWSOGgLbLPUwSCrcv4Tz2E",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.gemini_payload }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        512,
+        304
+      ],
+      "id": "cf43e9dd-e23e-49c4-81f6-c6e6d63e6ed4",
+      "name": "HTTP Request1"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8",
+          "mode": "list",
+          "cachedResultName": "my finance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit#gid=0"
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "Tanggal",
+              "fieldValue": "={{ JSON.parse($json.candidates[0].content.parts[0].text).tanggal }}"
+            },
+            {
+              "fieldId": "Jenis Transaksi",
+              "fieldValue": "={{ JSON.parse($json.candidates[0].content.parts[0].text).jenis }}"
+            },
+            {
+              "fieldId": "Kategori",
+              "fieldValue": "={{ JSON.parse($json.candidates[0].content.parts[0].text).kategori }}"
+            },
+            {
+              "fieldId": "Deskripsi",
+              "fieldValue": "={{ JSON.parse($json.candidates[0].content.parts[0].text).deskripsi }}"
+            },
+            {
+              "fieldId": "Jumlah",
+              "fieldValue": "={{ JSON.parse($json.candidates[0].content.parts[0].text).jumlah }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5af8bb09-8e0b-44cd-877e-185986880c8d",
+      "name": "Append to Google Sheets1",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 3,
+      "position": [
+        688,
+        304
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Sg0fFTBvtJYbaiQ1",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram Listener').item.json.message.chat.id }}",
+        "text": "=DATA BERASIL DI SIMPAN \n\n*Tanggal:*{{ JSON.parse($json.candidates[0].content.parts[0].text).tanggal }}\n*JENIS:*{{ JSON.parse($json.candidates[0].content.parts[0].text).jenis }}\n*KATEGORI:*{{ JSON.parse($json.candidates[0].content.parts[0].text).kategori }}\n*DESKRIPSI:*{{ JSON.parse($json.candidates[0].content.parts[0].text).deskripsi }}\n*TOTAL:* RP.{{ JSON.parse($json.candidates[0].content.parts[0].text).jumlah }}\n\n\n",
+        "additionalFields": {}
+      },
+      "id": "1e59143d-36c8-48fd-a975-3d75519488ee",
+      "name": "Reply Transaction Confirmed1",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        896,
+        304
+      ],
+      "webhookId": "ba9ab124-36e4-4716-b773-c0aaa53ab19c",
+      "credentials": {
+        "telegramApi": {
+          "id": "Ga1lDzGeteppzyCc",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "cahyapicture21@gmail.com",
+        "subject": "Laporan Keuangan Bulanan",
+        "message": "={{ $json.output }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        432,
+        1248
+      ],
+      "id": "95646ac1-ae7d-46ce-9dd2-d1f084cd9d79",
+      "name": "Send a message",
+      "webhookId": "a5807878-56e4-4431-a231-7d8cb0283e59",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "M4894aFEjZc3ju2B",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $execution }}",
+        "options": {
+          "systemMessage": "Anda adalah generator HTML satu-blok yang sangat presisi. Tugas Anda adalah menghasilkan *hanya* satu blok kode HTML lengkap dan valid berdasarkan TEMPLATE HTML dan DATA INPUT yang diberikan.\n\n---\n**TEMPLATE HTML (HARAP GUNAKAN PERSIS SEPERTI INI):**\n<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Laporan Keuangan Bulanan - [Bulan Tahun]</title>\n  <style>\n    body {\n      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;\n      margin: 25px;\n      color: #333;\n      line-height: 1.6;\n    }\n    h1 {\n      text-align: center;\n      color: #2c3e50;\n      margin-bottom: 25px;\n      font-size: 2em;\n    }\n    h2 {\n      text-align: center;\n      color: #34495e; /* Changed from #7f8c8d to a darker tone for better visibility */\n      margin-top: -15px; /* Adjust margin */\n      margin-bottom: 30px; /* More space below heading */\n      font-weight: normal; /* Lighter font weight for subtitle */\n      font-size: 1.5em;\n    }\n    table {\n      width: 100%;\n      border-collapse: collapse;\n      margin-top: 20px;\n      box-shadow: 0 2px 3px rgba(0,0,0,0.1);\n    }\n    th, td {\n      border: 1px solid #e0e0e0;\n      padding: 12px 15px;\n      text-align: left;\n      font-size: 0.95em;\n    }\n    th {\n      background-color: #f5f5f5;\n      color: #555;\n      font-weight: bold;\n      text-transform: uppercase;\n    }\n    tr:nth-child(even) {\n      background-color: #f9f9f9;\n    }\n    tr:hover {\n      background-color: #f1f1f1;\n    }\n    .summary {\n      margin-top: 35px;\n      border-top: 2px solid #3498db;\n      padding-top: 20px;\n      background-color: #ecf0f1;\n      padding: 15px;\n      border-radius: 5px;\n      box-shadow: 0 1px 2px rgba(0,0,0,0.05);\n    }\n    .summary p {\n      margin: 8px 0;\n      font-size: 1.15em;\n      display: flex;\n      justify-content: space-between;\n      align-items: center;\n      padding-right: 10px;\n    }\n    .summary strong {\n      color: #2980b9;\n      flex-grow: 1;\n    }\n    .summary span.amount {\n        font-weight: bold;\n        color: #e74c3c;\n    }\n    .summary span.amount.positive {\n        color: #27ae60;\n    }\n    footer {\n      text-align: center;\n      margin-top: 40px;\n      font-size: 0.8em;\n      color: #7f8c8d;\n      border-top: 1px solid #eee;\n      padding-top: 10px;\n    }\n  </style>\n</head>\n<body>\n  <h1>Laporan Keuangan Bulanan</h1>\n  <h2>[Bulan Tahun Saat Ini, contoh: Juli 2025]</h2>\n  <table>\n    <thead>\n      <tr>\n        <th>Tanggal</th>\n        <th>Jenis</th>\n        <th>Kategori</th>\n        <th>Deskripsi</th>\n        <th>Jumlah</th>\n      </tr>\n    </thead>\n    <tbody>\n      </tbody>\n  </table>\n  <div class=\"summary\">\n    <p><strong>Total Pemasukan:</strong> <span class=\"amount positive\">Rp [Total Pemasukan Anda]</span></p>\n    <p><strong>Total Pengeluaran:</strong> <span class=\"amount\">Rp [Total Pengeluaran Anda]</span></p>\n    <p><strong>Sisa Saldo:</strong> <span class=\"amount [kelas_warna_saldo]\">Rp [Sisa Saldo Anda]</span></p>\n  </div>\n  <footer>\n    Laporan ini dibuat oleh FinAssistAI pada [Tanggal dan Waktu Saat Ini, contoh: 29 Juli 2025, 14:05 WIB].\n  </footer>\n</body>\n</html>\n---\n\nMisalnya:\n```json\n{\n  \"bulan_tahun_saat_ini\": \"Juli 2025\",\n  \"total_pemasukan\": 8500000,\n  \"total_pengeluaran\": 1200000,\n  \"sisa_saldo\": 7300000,\n  \"kelas_warna_saldo\": \"positive\",\n  \"tanggal_waktu_laporan\": \"29 Juli 2025, 14:05 WIB\",\n  \"transaksi\": [\n    {\n      \"tanggal\": \"2025-07-01\",\n      \"jenis\": \"Pemasukan\",\n      \"kategori\": \"Gaji\",\n      \"deskripsi\": \"Gaji Bulanan\",\n      \"jumlah\": \"5.000.000\"\n    },\n    {\n      \"tanggal\": \"2025-07-05\",\n      \"jenis\": \"Pengeluaran\",\n      \"kategori\": \"Jajan\",\n      \"deskripsi\": \"Kopi dan Roti\",\n      \"jumlah\": \"50.000\"\n    },\n    {\n      \"tanggal\": \"2025-07-10\",\n      \"jenis\": \"Pemasukan\",\n      \"kategori\": \"Lain-lain\",\n      \"deskripsi\": \"Penjualan Barang Bekas\",\n      \"jumlah\": \"100.000\"\n    }\n  ],\n  \"tidak_ada_transaksi\": false\n}\n---\n**INSTRUKSI GENERASI (BERIKAN HTML LENGKAP SAJA):**\n\n1.  Ambil seluruh TEMPLATE HTML.\n2.  Ganti `[Bulan Tahun]` di `<title>` dan `[Bulan Tahun Saat Ini, contoh: Juli 2025]` di `<h2>` dengan nilai dari `bulan_tahun_saat_ini` dari Ambil Data Transaksi Bulanan (Report).\n3.  Bangun konten untuk `<tbody>` tabel:\n    * Jika `DATA INPUT.tidak_ada_transaksi` adalah `true`, isi `<tbody>` dengan baris tunggal: `<td colspan=\"5\" style=\"text-align:center; padding: 20px;\">Tidak ada transaksi untuk bulan ini.</td></tr>`.\n    * Jika `DATA INPUT.tidak_ada_transaksi` adalah `false`, iterasi melalui array `DATA INPUT.transaksi`. Untuk setiap objek transaksi, buat satu baris `<tr>` baru. Setiap `<td>` harus diisi dengan nilai `tanggal`, `jenis`, `kategori`, `deskripsi`, dan `jumlah` yang sesuai. Pastikan `jumlah` diformat dengan \"Rp \" di depannya dan pemisah ribuan (gunakan `toLocaleString('id-ID')` jika model mendukung, atau tampilkan seperti contoh `5.000.000` jika tidak).\n4.  Ganti `[Total Pemasukan Anda]`, `[Total Pengeluaran Anda]`, dan `[Sisa Saldo Anda]` di bagian `<div class=\"summary\">` dengan nilai yang sesuai dari Ambil Data Transaksi Bulanan (Report). Format dengan \"Rp \" dan pemisah ribuan.\n5.  Untuk `<span class=\"amount [kelas_warna_saldo]\">` pada \"Sisa Saldo:\", terapkan kelas CSS `positive` HANYA jika `Ambil Data Transaksi Bulanan (Report).sisa_saldo` positif atau nol. Pastikan `[kelas_warna_saldo]` diganti dengan `positive` atau string kosong.\n6.  Ganti `[Tanggal dan Waktu Saat Ini, contoh: 29 Juli 2025, 14:05 WIB]` di `<footer>` dengan nilai dari `tanggal_waktu_laporan` dari Ambil Data Transaksi Bulanan (Report).\n7.  **OUTPUT AKHIR HARUS BERUPA SATU BLOK KODE HTML LENGKAP DAN VALID SAJA.** Jangan menyertakan teks pengantar, penjelasan, atau format kode markdown seperti ` ```html ` atau ` ``` `. Jangan ada pengulangan HTML. Pastikan semua placeholder terisi dan tidak ada yang tersisa."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        16,
+        1248
+      ],
+      "id": "e41a6d42-6a3c-48db-9640-7c61524bcb47",
+      "name": "AI Agent3"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        16,
+        1424
+      ],
+      "id": "a7e15445-961e-49c7-985b-1b3f7d28efb5",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "r4SUP6M8aLBfyiu0",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8",
+          "mode": "list",
+          "cachedResultName": "my finance",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/14UVi7Pdu88NpyfXDSqrj1rmFGgRdtX9vpILddxNKIl8/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.6,
+      "position": [
+        224,
+        1424
+      ],
+      "id": "5c8fb078-c110-4917-9fcc-aaac67498900",
+      "name": "data input",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Sg0fFTBvtJYbaiQ1",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 20 12 * * 2"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        1264
+      ],
+      "id": "2247d2ef-f813-4177-ab61-402b3e5697c8",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cccc4f7c-a944-429d-b3fe-7dae251f77d9",
+              "leftValue": "={{ DateTime.now().setZone(\"Asia/Jakarta\").weekday === 2 && DateTime.now().setZone(\"Asia/Jakarta\").hour === 12 && DateTime.now().setZone(\"Asia/Jakarta\").minute === 20 }}",
+              "rightValue": "={{ DateTime.now().setZone(\"Asia/Jakarta\").weekday === 1 && DateTime.now().setZone(\"Asia/Jakarta\").hour === 11 }}\n",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -608,
+        1264
+      ],
+      "id": "5e083ce9-a06b-445f-8520-e7cc4df1cfb3",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "amount": 3,
+        "unit": "minutes"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        288,
+        1248
+      ],
+      "id": "38ad375e-66a1-4221-8031-e71917cf10e7",
+      "name": "Wait",
+      "webhookId": "f4a9afe6-794f-4b18-8e04-d6e73c1e329b"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Mengambil objek 'message' dari input node sebelumnya (Telegram Trigger)\nconst message = $input.item.json.message;\n\n// Safety check: Jika tidak ada data message, hentikan alur kerja\nif (!message) {\n  return [];\n}\n\nconst chatId = message.chat.id;\nconst messageText = message.text ? message.text.toLowerCase() : '';\nconst messageCaption = message.caption ? message.caption.toLowerCase() : '';\n\n\nif (messageText.startsWith('/saldo')) {\n  return [{ json: { type: 'saldo_request', chatId: chatId } }];\n}\n\n// Rute 2: Transaksi dengan Gambar (Perbaikan: caption bisa kosong)\nif (message.photo) {\n  // Hanya proses jika ada hashtag di caption ATAU jika kita ingin memproses semua foto\n  if (messageCaption.includes('#pengeluaran') || messageCaption.includes('#pemasukan')) {\n    // Ambil file_id dari foto dengan resolusi tertinggi (elemen terakhir dalam array)\n    const fileId = message.photo[message.photo.length - 1].file_id;\n    return [{ json: { type: 'image_transaction', chatId: chatId, fileId: fileId, caption: message.caption || '' } }];\n  } else {\n    // Jika ada foto tapi tanpa hashtag transaksi, kita bisa abaikan atau tambahkan penanganan lain\n    // Untuk saat ini, kita akan membiarkannya jatuh ke rute 'general_query' jika ada teks di caption\n    if (message.caption) { // Jika ada caption tapi bukan transaksi\n        return [{ json: { type: 'general_query', chatId: chatId, text: message.caption, isPhoto: true } }];\n    }\n  }\n}\n\n// Rute 3: Transaksi dengan Teks\nif (messageText.includes('#pengeluaran') || messageText.includes('#pemasukan')) {\n  return [{ json: { type: 'text_transaction', chatId: chatId, text: message.text } }];\n}\n\n// Rute 4: Pertanyaan Keuangan Umum (Jika tidak ada kondisi di atas yang cocok)\n// Ini akan menangani semua teks yang bukan perintah atau transaksi\nif (message.text) {\n  return [{ json: { type: 'general_query', chatId: chatId, text: message.text } }];\n}\n\n\n// Jika tidak ada kondisi yang cocok, jangan teruskan alur kerja\nreturn [];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        240
+      ],
+      "id": "7bd9baeb-af28-4710-807b-55001329b28e",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{$json.text}}",
+        "options": {
+          "systemMessage": "Anda adalah FinAssistAI, seorang asisten keuangan yang ahli dalam mengklasifikasikan transaksi.\n\nTugas Utama Anda\nMengekstrak informasi transaksi dari teks pengguna dan menyajikannya dalam format JSON yang valid.\n\nInstruksi Ekstraksi Data\nJenis Transaksi: Identifikasi 'Pemasukan' atau 'Pengeluaran'.\n\nKategori:\n\nPengeluaran:\n\n'Jajan': Transaksi tunai kecil, makanan/minuman ringan, atau makan di luar yang cepat.\n\n'Belanja': Pembelian di supermarket, online, pakaian, barang elektronik, atau kebutuhan rumah tangga.\n\n'Transportasi': Biaya perjalanan, bensin, tiket umum, dll.\n\n'Lain-lain': Pengeluaran yang tidak masuk kategori di atas.\n\nPemasukan:\n\n'Gaji': Pendapatan rutin dari pekerjaan.\n\n'Lain-lain': Sumber pemasukan non-gaji (misal: hadiah, penjualan barang bekas).\n\nDeskripsi: Berikan deskripsi singkat dan jelas.\n\nTanggal: Ekstrak tanggal dalam format 'YYYY-MM-DD'. Jika tidak ada, gunakan tanggal hari ini: 2025-07-29.\n\nJumlah: Ekstrak nilai numerik. Pastikan formatnya adalah angka, tanpa simbol mata uang atau pemisah ribuan.\n\nFormat Output\nOutput Anda harus berupa satu objek JSON tunggal dan murni, tanpa teks pembuka, teks penutup, atau Markdown (seperti ```json atau ```). Ini penting agar output bisa langsung di-parse.\n\nGunakan format ini:\n\nJSON\n\n{\n  \"tanggal\": \"YYYY-MM-DD\",\n  \"jenis\": \"Pemasukan/Pengeluaran\",\n  \"kategori\": \"Nama Kategori\",\n  \"deskripsi\": \"Deskripsi singkat transaksi\",\n  \"jumlah\": AngkaJumlah\n}\nContoh Input dan Output yang Diharapkan\nInput: \"beli kopi 25rb\"\n\nOutput:\n\nJSON\n\n{\"tanggal\": \"2025-07-29\", \"jenis\": \"Pengeluaran\", \"kategori\": \"Jajan\", \"deskripsi\": \"Beli kopi\", \"jumlah\": 25000}\n\n",
+          "returnIntermediateSteps": true
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "a6d5af55-b8fb-4f20-b150-e68f33d5be31",
+      "name": "AI Agent4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Listener": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "AI Agent4",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Get a file",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a file": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheets": {
+      "main": [
+        [
+          {
+            "node": "Reply Transaction Confirmed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Message & Route": {
+      "main": [
+        []
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send a text message1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent1": {
+      "main": [
+        [
+          {
+            "node": "Reply Saldo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet in Google Sheets": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent4",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request1": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheets1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheets1": {
+      "main": [
+        [
+          {
+            "node": "Reply Transaction Confirmed1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent3": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "data input": {
+      "ai_tool": [
+        [
+          {
+            "node": "AI Agent3",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "AI Agent3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent4": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e5ca17d5-949e-422b-b85a-1f32f746be80",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7f3f9ff53e7df216a863a3b1500341d4f1a744cd2f8b94d1dffca16687f70eb3"
+  },
+  "id": "9PyhMJHDrnqCu73E",
+  "tags": []
+}
